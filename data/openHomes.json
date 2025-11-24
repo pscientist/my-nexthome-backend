@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "title": "Sunny Family Home",
+    "location": "Mt Eden, Auckland",
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "openHomeTime": "2025-11-30T11:00:00"
+  },
+  {
+    "id": 2,
+    "title": "Modern City Apartment",
+    "location": "Auckland CBD",
+    "bedrooms": 2,
+    "bathrooms": 1,
+    "openHomeTime": "2025-11-30T14:00:00"
+  }
+]
