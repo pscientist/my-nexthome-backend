@@ -1,11 +1,12 @@
+const dotenv = require("dotenv");
+dotenv.config();
+
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
-const dotenv = require("dotenv");
 const OAuth = require("oauth-1.0a");
 const crypto = require("crypto");
-
-dotenv.config();
+const { saveOpenHomesToDB, getOpenHomesFromDB, getOpenHomeById } = require("./lib/database");
 
 const app = express();
 app.use(cors());
@@ -31,6 +32,8 @@ if (!TRADEME_CONSUMER_KEY || !TRADEME_CONSUMER_SECRET) {
   console.log(`TradeMe API configured for: ${TRADEME_ENV} environment`);
   console.log(`API Base URL: ${TRADEME_API_BASE}`);
 }
+
+
 
 // Initialize OAuth 1.0a - create function to get fresh instance with credentials
 function getOAuthInstance(signatureMethod = "HMAC-SHA1") {
@@ -66,7 +69,7 @@ async function fetchOpenHomes() {
     // Try Search API endpoint instead - may have better public access
     const url = `${TRADEME_API_BASE}/Search/Property/Residential.json`;
     const params = {
-      category: '3399', // Residential for sale
+      // category: '3399', // Residential for sale
       rows: 50, // Adjust as needed
       // Add other search parameters as needed
     };
@@ -135,6 +138,24 @@ async function fetchOpenHomes() {
       }
     }
 
+    // Debug: Log the full response structure
+    console.log('API Response Status:', response.status);
+    console.log('API Response Headers:', JSON.stringify(response.headers, null, 2));
+    console.log('API Response Data Keys:', Object.keys(response.data || {}));
+    console.log('Full Response Data:', JSON.stringify(response.data, null, 2));
+
+    // Check if List exists and its length
+    if (response.data.List) {
+      console.log(`Found ${response.data.List.length} listings in response`);
+      if (response.data.List.length > 0) {
+        console.log('Sample listing structure:', JSON.stringify(response.data.List[0], null, 2));
+        console.log('Listings with OpenHomes:', response.data.List.filter(l => l.OpenHomes && l.OpenHomes.length > 0).length);
+      }
+    } else {
+      console.log('WARNING: response.data.List is undefined or null');
+      console.log('Available keys in response.data:', Object.keys(response.data || {}));
+    }
+
     // Filter listings that have open homes and transform the data
     const listings = response.data.List || [];
     const openHomes = listings
@@ -191,7 +212,13 @@ async function fetchOpenHomes() {
 // GET: list open homes
 app.get("/api/open-homes", async (req, res) => {
   try {
+    // Fetch from TradeMe API
     const openHomes = await fetchOpenHomes();
+
+    // Save to Supabase
+    await saveOpenHomesToDB(openHomes);
+
+    // Return the data
     res.json(openHomes);
   } catch (error) {
     res.status(500).json({
@@ -202,21 +229,30 @@ app.get("/api/open-homes", async (req, res) => {
 });
 
 // GET: single open home
-// Note: This endpoint fetches all open homes to find one. Consider caching or
-// using TradeMe's single listing endpoint for better performance
 app.get("/api/open-homes/:id", async (req, res) => {
   try {
-    const openHomes = await fetchOpenHomes();
-    const id = Number(req.params.id);
-    const home = openHomes.find((item) => item.id === id);
+    // Try to get from Supabase first
+    const home = await getOpenHomeById(req.params.id);
 
-    if (!home) {
+    if (home) {
+      return res.json(home);
+    }
+
+    // Fallback: fetch from TradeMe API
+    const openHomes = await fetchOpenHomes();
+    const foundHome = openHomes.find((item) =>
+      item.listingId?.toString() === req.params.id ||
+      item.id?.toString() === req.params.id
+    );
+
+    if (!foundHome) {
       return res.status(404).json({ message: "Home not found" });
     }
-    res.json(home);
+
+    res.json(foundHome);
   } catch (error) {
     res.status(500).json({
-      message: "Failed to fetch open home from TradeMe API",
+      message: "Failed to fetch open home",
       error: error.message
     });
   }
