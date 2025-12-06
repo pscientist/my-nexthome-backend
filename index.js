@@ -213,10 +213,11 @@ async function fetchOpenHomes() {
 app.get("/api/open-homes", async (req, res) => {
   try {
     // Fetch from TradeMe API
-    const openHomes = await fetchOpenHomes();
+    // const openHomes = await fetchOpenHomes();
+    const openHomes = await getOpenHomesFromDB();
 
     // Save to Supabase
-    await saveOpenHomesToDB(openHomes);
+    // await saveOpenHomesToDB(openHomes);
 
     // Return the data
     res.json(openHomes);
@@ -256,6 +257,17 @@ app.get("/api/open-homes/:id", async (req, res) => {
       error: error.message
     });
   }
+});
+
+app.get("/api/open-homes/sync", async (req, res) => {
+  // try {
+  //   await saveOpenHomesToDB(req.body);
+  //   res.json({ message: "Open homes synced successfully" });
+  // } catch (error) {
+  //   res.status(500).json({ message: "Failed to sync open homes", error: error.message });
+  // }
+  console.log(req.body);
+  res.json({ message: "Open homes synced successfully" });
 });
 
 // Start server
